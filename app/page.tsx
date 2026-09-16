@@ -38,6 +38,17 @@ type Attempt = {
 };
 const PROGRESS_KEY = "leocontigo.progress.v1";
 const path = worlds.slice(1).flatMap((w) => w.lessons);
+const WORLD_LABELS = [
+  "Repaso",
+  "Sílabas",
+  "Palabras",
+  "Sonidos",
+  "Frases",
+  "Cuentos",
+  "Fluidez",
+  "Comprensión",
+];
+const WORLD_SCENES = ["🌼", "🔤", "🧩", "🎵", "🌉", "📖", "⛰️", "🏰"];
 function mastered(id: string, rows: Attempt[]) {
   const recent = rows.filter((a) => a.lesson === id);
   return recent.some(
@@ -604,37 +615,80 @@ export default function Home() {
                     {masteredCount} de {lessons.length} desafíos dominados
                   </span>
                 </div>
-                <div
-                  className="world-selector"
-                  aria-label="Etapas del aprendizaje"
+                <section
+                  className="adventure-map"
+                  aria-label="Mapa del camino de lectura"
                 >
-                  {worlds.map((w, i) => (
-                    <button
-                      key={w.title}
-                      onClick={() => setWorld(i)}
-                      className={
-                        "world-dot " + w.color + (i === world ? " current" : "")
-                      }
-                      aria-pressed={i === world}
-                    >
-                      <span>{i === 0 ? "A" : i}</span>
-                      <small>
-                        {
-                          [
-                            "Repaso",
-                            "Sílabas",
-                            "Palabras",
-                            "Sonidos",
-                            "Frases",
-                            "Cuentos",
-                            "Fluidez",
-                            "Comprensión",
-                          ][i]
-                        }
-                      </small>
-                    </button>
-                  ))}
-                </div>
+                  <span className="map-cloud cloud-one" aria-hidden="true">
+                    ☁️
+                  </span>
+                  <span className="map-cloud cloud-two" aria-hidden="true">
+                    ☁️
+                  </span>
+                  <span className="map-tree tree-one" aria-hidden="true">
+                    🌳
+                  </span>
+                  <span className="map-tree tree-two" aria-hidden="true">
+                    🌲
+                  </span>
+                  <span className="map-books" aria-hidden="true">
+                    📚
+                  </span>
+                  <svg
+                    className="map-trail"
+                    viewBox="0 0 1000 700"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <path d="M130 610 C330 610 360 520 230 465 C100 410 180 320 410 350 C650 382 790 315 730 245 C660 170 675 95 880 75" />
+                  </svg>
+                  <div className="map-mascots" aria-hidden="true">
+                    <img src="companions.png" alt="" />
+                  </div>
+                  {worlds.map((w, i) => {
+                    const complete = w.lessons.every((lesson) =>
+                      mastered(lesson.id, rows),
+                    );
+                    const available =
+                      i === 0 || w.lessons.some((lesson) => unlocked(lesson));
+                    const state = complete
+                      ? "complete"
+                      : i === world && available
+                        ? "current"
+                        : available
+                          ? "available"
+                          : "locked";
+                    return (
+                      <button
+                        key={w.title}
+                        onClick={() => setWorld(i)}
+                        className={`map-stage stage-${i} ${state}`}
+                        aria-pressed={i === world}
+                        aria-label={`${WORLD_LABELS[i]}: ${complete ? "completado" : available ? "disponible" : "bloqueado"}`}
+                        disabled={!available}
+                      >
+                        {state === "current" && (
+                          <span className="you-are-here">Estás aquí</span>
+                        )}
+                        <span className="stage-scene" aria-hidden="true">
+                          {WORLD_SCENES[i]}
+                        </span>
+                        <span className="stage-node">
+                          {complete ? (
+                            <Check />
+                          ) : state === "locked" ? (
+                            <Lock size={24} />
+                          ) : i === 0 ? (
+                            "A"
+                          ) : (
+                            i
+                          )}
+                        </span>
+                        <strong>{WORLD_LABELS[i]}</strong>
+                      </button>
+                    );
+                  })}
+                </section>
                 <section className="world-panel">
                   <div className="world-heading">
                     <div>
@@ -1016,9 +1070,9 @@ export default function Home() {
                   Cada desafío necesita dos rondas consecutivas con al menos 80%
                   de aciertos al primer intento. Las respuestas con ayuda
                   permiten terminar el ejercicio, pero no aumentan ese
-                  resultado. Cada ronda contiene siete ejercicios. Al repetir
-                  un desafío se usa una misión diferente, no la misma lista en
-                  otro orden.
+                  resultado. Cada ronda contiene siete ejercicios. Al repetir un
+                  desafío se usa una misión diferente, no la misma lista en otro
+                  orden.
                 </p>
                 <p>
                   Una vez logrado un desafío, permanece desbloqueado. Los
