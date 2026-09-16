@@ -18,6 +18,7 @@ import {
   Heart,
   HardDrive,
   ShieldCheck,
+  Gift,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useReadingVoice } from "@/lib/use-reading-voice";
@@ -36,7 +37,12 @@ type Attempt = {
   total: number;
   created: string;
 };
+type RewardSettings = {
+  frame?: string;
+  background?: string;
+};
 const PROGRESS_KEY = "leocontigo.progress.v1";
+const REWARDS_KEY = "leocontigo.rewards.v1";
 const path = worlds.slice(1).flatMap((w) => w.lessons);
 const WORLD_LABELS = [
   "Repaso",
@@ -49,6 +55,71 @@ const WORLD_LABELS = [
   "Comprensión",
 ];
 const WORLD_SCENES = ["🌼", "🔤", "🧩", "🎵", "🌉", "📖", "⛰️", "🏰"];
+const REWARDS = [
+  {
+    id: "first-steps",
+    stars: 5,
+    icon: "🌱",
+    name: "Primeros pasos",
+    description: "Tu primera insignia de explorador",
+    type: "Insignia",
+    color: "mint",
+  },
+  {
+    id: "leaf-frame",
+    stars: 10,
+    icon: "🍃",
+    name: "Hojas verdes",
+    description: "Un marco natural para tu avatar",
+    type: "Marco",
+    color: "green",
+  },
+  {
+    id: "leo-reader",
+    stars: 20,
+    icon: "🐶",
+    name: "Leo lector",
+    description: "Una pegatina para tu colección",
+    type: "Pegatina",
+    color: "orange",
+  },
+  {
+    id: "magic-library",
+    stars: 35,
+    icon: "📚",
+    name: "Biblioteca mágica",
+    description: "Un fondo lleno de historias",
+    type: "Fondo",
+    color: "purple",
+  },
+  {
+    id: "word-hunter",
+    stars: 50,
+    icon: "🔎",
+    name: "Cazador de palabras",
+    description: "Una insignia para grandes detectives",
+    type: "Insignia",
+    color: "blue",
+  },
+  {
+    id: "rainbow-frame",
+    stars: 75,
+    icon: "🌈",
+    name: "Marco Arcoíris",
+    description: "Todos los colores para tu avatar",
+    type: "Marco",
+    color: "pink",
+  },
+  {
+    id: "great-explorer",
+    stars: 100,
+    icon: "🏆",
+    name: "Gran explorador",
+    description: "El trofeo de toda la aventura",
+    type: "Trofeo",
+    color: "gold",
+  },
+] as const;
 function mastered(id: string, rows: Attempt[]) {
   const recent = rows.filter((a) => a.lesson === id);
   return recent.some(
@@ -60,6 +131,17 @@ function mastered(id: string, rows: Attempt[]) {
 }
 function shuffle<T>(a: T[]) {
   return [...a].sort(() => Math.random() - 0.5);
+}
+function countStars(rows: Attempt[]) {
+  return lessons.reduce((total, lesson) => {
+    const best = Math.max(
+      0,
+      ...rows
+        .filter((attempt) => attempt.lesson === lesson.id)
+        .map((attempt) => attempt.score / attempt.total),
+    );
+    return total + (best === 1 ? 3 : best >= 0.8 ? 2 : best > 0 ? 1 : 0);
+  }, 0);
 }
 const CONFETTI = Array.from({ length: 48 }, (_, i) => ({
   left: `${(i * 37) % 100}%`,
@@ -96,13 +178,21 @@ export default function Home() {
     [save, setSave] = useState(""),
     [pending, setPending] = useState<any>(null),
     [typed, setTyped] = useState(""),
-    [heard, setHeard] = useState(false);
+    [heard, setHeard] = useState(false),
+    [rewardSettings, setRewardSettings] = useState<RewardSettings>({}),
+    [newReward, setNewReward] = useState<(typeof REWARDS)[number] | null>(null);
   const voice = useReadingVoice();
   function load() {
     setLoading(true);
     try {
       const saved = JSON.parse(localStorage.getItem(PROGRESS_KEY) || "[]");
       setRows(Array.isArray(saved) ? saved : []);
+      const savedRewards = JSON.parse(
+        localStorage.getItem(REWARDS_KEY) || "{}",
+      );
+      setRewardSettings(
+        savedRewards && typeof savedRewards === "object" ? savedRewards : {},
+      );
       setError("");
     } catch {
       setRows([]);
@@ -138,6 +228,7 @@ export default function Home() {
     setFeedback("");
     setSave("");
     setPending(null);
+    setNewReward(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function setup(i: number) {
@@ -176,8 +267,14 @@ export default function Home() {
         { ...b, created: new Date().toISOString() },
         ...rows.filter((r) => r.id !== b.id),
       ].slice(0, 5000);
+      const previousStars = countStars(rows);
+      const updatedStars = countStars(next);
+      const unlocked = REWARDS.filter(
+        (reward) => reward.stars > previousStars && reward.stars <= updatedStars,
+      );
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(next));
       setRows(next);
+      setNewReward(unlocked.at(-1) || null);
       setSave("saved");
       setError("");
     } catch {
@@ -199,15 +296,17 @@ export default function Home() {
     }
   }
   const masteredCount = lessons.filter((l) => mastered(l.id, rows)).length,
-    stars = lessons.reduce((n, l) => {
-      const best = Math.max(
-        0,
-        ...rows.filter((r) => r.lesson === l.id).map((r) => r.score / r.total),
-      );
-      return n + (best === 1 ? 3 : best >= 0.8 ? 2 : best > 0 ? 1 : 0);
-    }, 0);
+    stars = countStars(rows);
   const suggested =
     path.find((l) => !mastered(l.id, rows)) || path[path.length - 1];
+  const nextReward = REWARDS.find((reward) => reward.stars > stars);
+  const previousRewardStars =
+    [...REWARDS].reverse().find((reward) => reward.stars <= stars)?.stars || 0;
+  const rewardProgress = nextReward
+    ? ((stars - previousRewardStars) /
+        (nextReward.stars - previousRewardStars)) *
+      100
+    : 100;
   const today = new Date().toLocaleDateString("en-CA"),
     daily = rows.filter(
       (r) => new Date(r.created).toLocaleDateString("en-CA") === today,
@@ -218,6 +317,12 @@ export default function Home() {
   function leave() {
     voice.stop();
     setActive(null);
+  }
+  function equipReward(reward: (typeof REWARDS)[number]) {
+    const key = reward.type === "Marco" ? "frame" : "background";
+    const next = { ...rewardSettings, [key]: reward.id };
+    setRewardSettings(next);
+    localStorage.setItem(REWARDS_KEY, JSON.stringify(next));
   }
   if (active) {
     const q = questions[index];
@@ -294,6 +399,15 @@ export default function Home() {
             <p>
               Acertaste {score} de {questions.length} al primer intento.
             </p>
+            {newReward && (
+              <div className="new-reward" role="status">
+                <span aria-hidden="true">{newReward.icon}</span>
+                <div>
+                  <small>¡NUEVA RECOMPENSA!</small>
+                  <strong>{newReward.name}</strong>
+                </div>
+              </div>
+            )}
             <div className="huge-stars">
               {[1, 2, 3].map((n) => (
                 <Star
@@ -522,7 +636,13 @@ export default function Home() {
     );
   }
   return (
-    <div className="app">
+    <div
+      className={`app ${
+        rewardSettings.background === "magic-library"
+          ? "app-magic-library"
+          : ""
+      }`}
+    >
       <header className="topbar">
         <a href="/" className="brand">
           <span className="brand-book">
@@ -531,11 +651,21 @@ export default function Home() {
           Leo<span>Contigo</span>
         </a>
         <div className="header-right">
-          <span className="star-pill">
+          <button
+            className="star-pill star-button"
+            onClick={() => setTab("rewards")}
+            aria-label={`${stars} estrellas. Ver mis recompensas`}
+          >
             <Star size={20} fill="currentColor" />
             {stars} <span>estrellas</span>
-          </span>
-          <div className="avatar">L</div>
+          </button>
+          <div
+            className={`avatar ${
+              rewardSettings.frame ? `avatar-${rewardSettings.frame}` : ""
+            }`}
+          >
+            L
+          </div>
         </div>
       </header>
       <Tabs value={tab} onValueChange={setTab}>
@@ -546,6 +676,9 @@ export default function Home() {
             </TabsTrigger>
             <TabsTrigger value="games">
               <Gamepad2 /> Mis desafíos
+            </TabsTrigger>
+            <TabsTrigger value="rewards">
+              <Gift /> Recompensas
             </TabsTrigger>
             <TabsTrigger value="progress">
               <BarChart3 /> Mi progreso
@@ -859,6 +992,117 @@ export default function Home() {
                 </section>
               ))}
             </div>
+          </TabsContent>
+          <TabsContent value="rewards">
+            <section className="rewards-hero">
+              <div className="rewards-hero-copy">
+                <span className="eyebrow">CADA ESTRELLA CUENTA</span>
+                <h1>Mis recompensas</h1>
+                <p>
+                  Lee, practica y llena tu vitrina de recuerdos. Tus estrellas
+                  nunca se gastan.
+                </p>
+                <div className="next-reward-progress">
+                  <div>
+                    <span>
+                      {nextReward ? "TU PRÓXIMO PREMIO" : "¡COLECCIÓN COMPLETA!"}
+                    </span>
+                    <strong>
+                      {nextReward
+                        ? `${nextReward.icon} ${nextReward.name}`
+                        : "🏆 Gran explorador"}
+                    </strong>
+                  </div>
+                  <b>{nextReward ? `${stars} / ${nextReward.stars}` : stars}</b>
+                  <Progress
+                    value={rewardProgress}
+                    aria-label={
+                      nextReward
+                        ? `Progreso para ${nextReward.name}: ${stars} de ${nextReward.stars} estrellas`
+                        : "Todas las recompensas conseguidas"
+                    }
+                  />
+                  <small>
+                    {nextReward
+                      ? `Te faltan ${nextReward.stars - stars} estrellas`
+                      : "¡Has desbloqueado todos los premios!"}
+                  </small>
+                </div>
+              </div>
+              <div className="rewards-showcase" aria-hidden="true">
+                <span>🌈</span>
+                <div className="reward-chest">🎁</div>
+                <span>🏆</span>
+              </div>
+            </section>
+
+            <div className="rewards-heading">
+              <div>
+                <span className="eyebrow">TU VITRINA</span>
+                <h2>Premios de la aventura</h2>
+              </div>
+              <span className="reward-total">
+                <Star fill="currentColor" /> {stars} estrellas
+              </span>
+            </div>
+
+            <section className="rewards-grid" aria-label="Premios de la aventura">
+              {REWARDS.map((reward) => {
+                const earned = stars >= reward.stars;
+                const isNext = nextReward?.id === reward.id;
+                return (
+                  <article
+                    className={`reward-card ${reward.color} ${
+                      earned ? "reward-earned" : isNext ? "reward-next" : "reward-locked"
+                    }`}
+                    key={reward.id}
+                  >
+                    <div className="reward-card-top">
+                      <span className="reward-kind">{reward.type}</span>
+                      <span className="reward-cost">
+                        <Star size={16} fill="currentColor" /> {reward.stars}
+                      </span>
+                    </div>
+                    <div className="reward-icon" aria-hidden="true">
+                      {reward.icon}
+                    </div>
+                    <h3>{reward.name}</h3>
+                    <p>{reward.description}</p>
+                    <div className="reward-state">
+                      {earned ? (
+                        <><Check size={18} /> ¡Conseguida!</>
+                      ) : isNext ? (
+                        <><Sparkles size={18} /> Tu próximo premio</>
+                      ) : (
+                        <><Lock size={17} /> Se abre con {reward.stars} estrellas</>
+                      )}
+                    </div>
+                    {earned &&
+                      (reward.type === "Marco" || reward.type === "Fondo") && (
+                        <button
+                          className="reward-use"
+                          onClick={() => equipReward(reward)}
+                          disabled={
+                            rewardSettings[
+                              reward.type === "Marco" ? "frame" : "background"
+                            ] === reward.id
+                          }
+                        >
+                          {rewardSettings[
+                            reward.type === "Marco" ? "frame" : "background"
+                          ] === reward.id
+                            ? "✓ En uso"
+                            : "Usar recompensa"}
+                        </button>
+                      )}
+                  </article>
+                );
+              })}
+            </section>
+            <p className="rewards-note">
+              <ShieldCheck size={18} /> Las recompensas celebran tu esfuerzo:
+              no se compran, no se pierden y no bloquean las lecciones.
+            </p>
           </TabsContent>
           <TabsContent value="progress">
             <div className="greeting">

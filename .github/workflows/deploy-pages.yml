@@ -2,7 +2,9 @@ name: Deploy Leoaventura to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # `work` publishes approved previews immediately; `main` remains the
+    # canonical production source after merge.
+    branches: [main, work]
   workflow_dispatch:
 
 permissions:
