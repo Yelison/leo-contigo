@@ -1293,7 +1293,7 @@ footer {
     font-size: 2.55rem;
   }
 }
-@media (max-width: 1000px) {
+@media (max-width: 1430px) {
   .home-grid {
     grid-template-columns: 1fr;
   }
@@ -1304,6 +1304,8 @@ footer {
   .save-note {
     grid-column: 1/-1;
   }
+}
+@media (max-width: 1000px) {
   .hero {
     min-height: 330px;
   }
