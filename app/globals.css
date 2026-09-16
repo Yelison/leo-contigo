@@ -242,7 +242,7 @@ svg {
 }
 .home-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 272px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 25px;
 }
 .hero {
@@ -702,8 +702,8 @@ svg {
   background: #6eaf49;
 }
 .right-column {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
 }
 .daily-card {
@@ -1293,19 +1293,13 @@ footer {
     font-size: 2.55rem;
   }
 }
-@media (max-width: 1430px) {
-  .home-grid {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 1000px) {
   .right-column {
-    display: grid;
     grid-template-columns: 1fr 1fr;
   }
   .save-note {
     grid-column: 1/-1;
   }
-}
-@media (max-width: 1000px) {
   .hero {
     min-height: 330px;
   }
